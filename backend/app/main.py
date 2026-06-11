@@ -5,7 +5,7 @@ from .config import settings
 from .database import engine, Base
 from .routers import (
     auth, study_rooms, shifts, signups, attendance,
-    leave, volunteers, stats, audit
+    leave, volunteers, stats, audit, duplicate_checks
 )
 
 Base.metadata.create_all(bind=engine)
@@ -33,6 +33,7 @@ app.include_router(leave.router)
 app.include_router(volunteers.router)
 app.include_router(stats.router)
 app.include_router(audit.router)
+app.include_router(duplicate_checks.router)
 
 
 @app.get("/health")

@@ -229,3 +229,42 @@ class AuditLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     user = relationship("User", back_populates="audit_logs")
+
+
+class DuplicateCheckTypeEnum(str, enum.Enum):
+    SHIFT_DUPLICATE = "shift_duplicate"
+    SIGNUP_DUPLICATE = "signup_duplicate"
+    ATTENDANCE_DUPLICATE = "attendance_duplicate"
+    TIME_CONFLICT = "time_conflict"
+    CROSS_SITE_CONFLICT = "cross_site_conflict"
+    TRAINING_REQUIRED = "training_required"
+
+
+class DuplicateCheckStatusEnum(str, enum.Enum):
+    PASS = "pass"
+    FAIL = "fail"
+    WARNING = "warning"
+
+
+class DuplicateCheck(Base):
+    __tablename__ = "duplicate_checks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    check_type = Column(SAEnum(DuplicateCheckTypeEnum), nullable=False, index=True)
+    status = Column(SAEnum(DuplicateCheckStatusEnum), nullable=False, index=True)
+    entity_type = Column(String(50), index=True)
+    entity_id = Column(Integer, index=True)
+    volunteer_id = Column(Integer, ForeignKey("users.id"), index=True)
+    study_room_id = Column(Integer, ForeignKey("study_rooms.id"), index=True)
+    shift_id = Column(Integer, ForeignKey("shifts.id"), index=True)
+    conflict_entity_id = Column(Integer)
+    conflict_details = Column(Text)
+    check_reason = Column(String(255))
+    checked_by = Column(Integer, ForeignKey("users.id"))
+    check_time = Column(DateTime, default=datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    volunteer = relationship("User", foreign_keys=[volunteer_id])
+    study_room = relationship("StudyRoom")
+    shift = relationship("Shift")
+    checker = relationship("User", foreign_keys=[checked_by])

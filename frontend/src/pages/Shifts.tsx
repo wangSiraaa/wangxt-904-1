@@ -7,7 +7,7 @@ import {
   PlusOutlined, EditOutlined, DeleteOutlined,
   PlayCircleOutlined, StopOutlined, ExclamationCircleOutlined
 } from '@ant-design/icons'
-import { shiftApi, studyRoomApi, signupApi } from '../api'
+import { shiftApi, studyRoomApi, signupApi, duplicateCheckApi } from '../api'
 import dayjs from 'dayjs'
 
 function Shifts() {
@@ -19,6 +19,8 @@ function Shifts() {
   const [form] = Form.useForm()
   const [user, setUser] = useState<any>(null)
   const [conflictInfo, setConflictInfo] = useState<any>(null)
+  const [shiftDuplicateInfo, setShiftDuplicateInfo] = useState<any>(null)
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false)
 
   useEffect(() => {
     const userStr = localStorage.getItem('user')
@@ -102,24 +104,33 @@ function Shifts() {
 
   const handleSignup = async (shiftId: number) => {
     try {
-      const conflictRes = await signupApi.checkConflict(shiftId)
-      if (conflictRes.data.has_conflict) {
+      const conflictRes = await duplicateCheckApi.checkSignup(shiftId)
+      if (conflictRes.data.has_duplicate) {
         setConflictInfo(conflictRes.data)
+        const conflicts = conflictRes.data.conflicts || []
         Modal.confirm({
           title: '报名冲突提示',
           icon: <ExclamationCircleOutlined style={{ color: '#faad14' }} />,
           content: (
             <div>
-              {conflictRes.data.conflicts.map((c: any, i: number) => (
+              {conflicts.map((c: any, i: number) => (
                 <Alert
                   key={i}
                   message={c.message}
-                  type="warning"
+                  description={c.conflict_details}
+                  type={c.status === 'fail' ? 'error' : 'warning'}
                   showIcon
                   style={{ marginBottom: 8 }}
                 />
               ))}
-              <p style={{ marginTop: 12 }}>您确定还要报名吗？</p>
+              <p style={{ marginTop: 12 }}>
+                <strong>原因说明：</strong>
+                {conflicts.some((c: any) => c.check_type === 'time_conflict') && '您已在同一时段报名了其他班次，时间重叠。'}
+                {conflicts.some((c: any) => c.check_type === 'cross_site_conflict') && '您在同一天的不同点位都有排班，可能存在通勤困难。'}
+                {conflicts.some((c: any) => c.check_type === 'signup_duplicate') && '您已报名过该班次。'}
+                {conflicts.some((c: any) => c.check_type === 'training_required') && '晚班需要完成培训后才能报名。'}
+              </p>
+              <p>您确定还要报名吗？</p>
             </div>
           ),
           okText: '继续报名',
@@ -145,6 +156,37 @@ function Shifts() {
     }
   }
 
+  const checkShiftDuplicate = async () => {
+    try {
+      const values = await form.validateFields(['study_room_id', 'shift_date', 'start_time', 'end_time'])
+      setCheckingDuplicate(true)
+      setShiftDuplicateInfo(null)
+
+      const params: any = {
+        study_room_id: values.study_room_id,
+        shift_date: values.shift_date.format('YYYY-MM-DD'),
+        start_time: values.start_time.format('HH:mm:ss'),
+        end_time: values.end_time.format('HH:mm:ss'),
+      }
+      if (editingId) {
+        params.exclude_shift_id = editingId
+      }
+
+      const res = await duplicateCheckApi.checkShift(params)
+      setShiftDuplicateInfo(res.data)
+
+      if (res.data.has_duplicate) {
+        message.warning(res.data.message || '存在班次重复')
+      } else {
+        message.success('无重复班次')
+      }
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '校验失败')
+    } finally {
+      setCheckingDuplicate(false)
+    }
+  }
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
@@ -163,9 +205,26 @@ function Shifts() {
         message.success('创建成功')
       }
       setModalVisible(false)
+      setShiftDuplicateInfo(null)
       loadData()
-    } catch (error) {
-      // 校验错误
+    } catch (error: any) {
+      if (error.response?.data?.detail?.includes('重复')) {
+        Modal.error({
+          title: '班次重复',
+          content: (
+            <div>
+              <Alert
+                message={error.response.data.detail}
+                type="error"
+                showIcon
+              />
+              <p style={{ marginTop: 12 }}>
+                原因：同一书房点位在相同日期和时段已存在班次，请调整时间或点位。
+              </p>
+            </div>
+          ),
+        })
+      }
     }
   }
 
@@ -357,10 +416,54 @@ function Shifts() {
         title={editingId ? '编辑班次' : '新增班次'}
         open={modalVisible}
         onOk={handleSubmit}
-        onCancel={() => setModalVisible(false)}
+        onCancel={() => {
+          setModalVisible(false)
+          setShiftDuplicateInfo(null)
+        }}
         width={600}
+        footer={[
+          <Button key="check" onClick={checkShiftDuplicate} loading={checkingDuplicate}>
+            重复校验
+          </Button>,
+          <Button key="cancel" onClick={() => {
+            setModalVisible(false)
+            setShiftDuplicateInfo(null)
+          }}>
+            取消
+          </Button>,
+          <Button key="submit" type="primary" onClick={handleSubmit}>
+            确定
+          </Button>,
+        ]}
       >
         <Form form={form} layout="vertical">
+          {shiftDuplicateInfo && (
+            <Alert
+              style={{ marginBottom: 16 }}
+              message={shiftDuplicateInfo.has_duplicate ? '存在重复班次' : '无重复班次'}
+              description={
+                <div>
+                  <p><strong>原因：</strong>{shiftDuplicateInfo.message}</p>
+                  {shiftDuplicateInfo.conflict_details && (
+                    <p><strong>详情：</strong>{shiftDuplicateInfo.conflict_details}</p>
+                  )}
+                  {shiftDuplicateInfo.conflicting_shift && (
+                    <p>
+                      <strong>冲突班次：</strong>
+                      {shiftDuplicateInfo.conflicting_shift.study_room_name || '-'}
+                      {' '}{shiftDuplicateInfo.conflicting_shift.start_time?.slice(0, 5)}
+                      {' - '}{shiftDuplicateInfo.conflicting_shift.end_time?.slice(0, 5)}
+                    </p>
+                  )}
+                  <p style={{ fontSize: 12, color: '#999' }}>
+                    校验记录ID: {shiftDuplicateInfo.check_id}
+                  </p>
+                </div>
+              }
+              type={shiftDuplicateInfo.has_duplicate ? 'warning' : 'success'}
+              showIcon
+            />
+          )}
           <Form.Item name="study_room_id" label="书房点位" rules={[{ required: true, message: '请选择书房' }]}>
             <Select placeholder="请选择书房">
               {rooms.map(room => (

@@ -16,6 +16,7 @@ from .shift_service import (
     is_shift_full, has_checked_in, update_shift_current_volunteers,
     get_approved_count
 )
+from .duplicate_check_service import perform_full_signup_check
 
 
 def create_signup(
@@ -27,6 +28,8 @@ def create_signup(
     shift = db.query(Shift).filter(Shift.id == signup_data.shift_id).first()
     if not shift:
         raise HTTPException(status_code=404, detail="班次不存在")
+
+    perform_full_signup_check(db, volunteer_id, signup_data.shift_id, volunteer_id)
 
     existing_signup = db.query(Signup).filter(
         Signup.shift_id == signup_data.shift_id,
@@ -93,6 +96,11 @@ def approve_signup(
 
     if signup.status != SignupStatusEnum.PENDING:
         raise HTTPException(status_code=400, detail="只有待审核的报名可以审批")
+
+    perform_full_signup_check(
+        db, signup.volunteer_id, signup.shift_id, reviewer_id,
+        exclude_signup_id=signup_id
+    )
 
     full, full_msg = is_shift_full(db, signup.shift_id)
     if full:

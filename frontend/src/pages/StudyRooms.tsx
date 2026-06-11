@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Modal, Form, Input, InputNumber, Select, Space, message, Popconfirm, Tag } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Table, Button, Modal, Form, Input, InputNumber, Select, Space, message, Popconfirm, Tag, Alert } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { studyRoomApi } from '../api'
 
 function StudyRooms() {
@@ -10,6 +10,7 @@ function StudyRooms() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form] = Form.useForm()
   const [user, setUser] = useState<any>(null)
+  const [nameDuplicate, setNameDuplicate] = useState(false)
 
   useEffect(() => {
     const userStr = localStorage.getItem('user')
@@ -56,6 +57,70 @@ function StudyRooms() {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields()
+
+      const isDuplicate = data.some(room =>
+        room.name === values.name && room.id !== editingId
+      )
+      if (isDuplicate) {
+        Modal.error({
+          title: '点位名称重复',
+          content: (
+            <div>
+              <Alert
+                message="点位名称已存在"
+                type="error"
+                showIcon
+              />
+              <p style={{ marginTop: 12 }}>
+                原因：名称为“{values.name}”的书房点位已存在，请使用不同的名称。
+              </p>
+            </div>
+          ),
+        })
+        setNameDuplicate(true)
+        return
+      }
+
+      const isAddrDuplicate = data.some(room =>
+        room.address && values.address && room.address === values.address && room.id !== editingId
+      )
+      if (isAddrDuplicate) {
+        Modal.warning({
+          title: '点位地址重复',
+          icon: <ExclamationCircleOutlined />,
+          content: (
+            <div>
+              <Alert
+                message="相同地址已存在其他点位"
+                type="warning"
+                showIcon
+              />
+              <p style={{ marginTop: 12 }}>
+                <strong>原因：</strong>地址“{values.address}”已用于其他书房点位。
+              </p>
+              <p>是否继续创建？</p>
+            </div>
+          ),
+          onOk: async () => {
+            try {
+              if (editingId) {
+                await studyRoomApi.update(editingId, values)
+                message.success('更新成功')
+              } else {
+                await studyRoomApi.create(values)
+                message.success('创建成功')
+              }
+              setModalVisible(false)
+              setNameDuplicate(false)
+              loadData()
+            } catch (e) {
+              // ignore
+            }
+          }
+        })
+        return
+      }
+
       if (editingId) {
         await studyRoomApi.update(editingId, values)
         message.success('更新成功')
@@ -64,6 +129,7 @@ function StudyRooms() {
         message.success('创建成功')
       }
       setModalVisible(false)
+      setNameDuplicate(false)
       loadData()
     } catch (error) {
       // 校验错误不处理
@@ -72,7 +138,7 @@ function StudyRooms() {
 
   const canEdit = user && (user.role === 'admin' || user.role === 'operations')
 
-  const columns = [
+  const columns: any[] = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: '地址', dataIndex: 'address', key: 'address' },

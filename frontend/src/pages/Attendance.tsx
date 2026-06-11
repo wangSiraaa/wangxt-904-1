@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Space, message, Tag, Tabs, Card, Row, Col } from 'antd'
-import { LoginOutlined, LogoutOutlined, CheckCircleOutlined } from '@ant-design/icons'
-import { attendanceApi, shiftApi } from '../api'
+import { Table, Button, Space, message, Tag, Tabs, Card, Row, Col, Modal, Alert } from 'antd'
+import { LoginOutlined, LogoutOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { attendanceApi, shiftApi, duplicateCheckApi } from '../api'
 import dayjs from 'dayjs'
 
 function Attendance() {
@@ -41,6 +41,28 @@ function Attendance() {
 
   const handleCheckIn = async (shiftId: number) => {
     try {
+      const dupRes = await duplicateCheckApi.checkAttendance(shiftId)
+      if (dupRes.data.has_duplicate) {
+        Modal.warning({
+          title: '签到重复提示',
+          icon: <ExclamationCircleOutlined />,
+          content: (
+            <div>
+              <Alert
+                message={dupRes.data.message}
+                description={dupRes.data.conflict_details}
+                type="warning"
+                showIcon
+              />
+              <p style={{ marginTop: 12 }}>
+                <strong>原因：</strong>您已在该班次完成签到，请勿重复签到。
+              </p>
+            </div>
+          ),
+        })
+        return
+      }
+
       await attendanceApi.checkIn(shiftId)
       message.success('签到成功')
       loadData()

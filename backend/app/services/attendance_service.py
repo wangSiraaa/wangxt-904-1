@@ -7,6 +7,7 @@ from ..models import (
     Attendance, Shift, Signup, AuditLog,
     AttendanceStatusEnum, SignupStatusEnum, ShiftStatusEnum
 )
+from .duplicate_check_service import check_attendance_duplicate
 
 
 def check_in(
@@ -18,6 +19,8 @@ def check_in(
     shift = db.query(Shift).filter(Shift.id == shift_id).first()
     if not shift:
         raise HTTPException(status_code=404, detail="班次不存在")
+
+    check_attendance_duplicate(db, volunteer_id, shift_id, volunteer_id)
 
     signup = db.query(Signup).filter(
         Signup.shift_id == shift_id,

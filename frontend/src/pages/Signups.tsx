@@ -105,7 +105,7 @@ function Signups() {
     return texts[status] || status
   }
 
-  const columns = [
+  const columns: any[] = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     {
       title: '志愿者',

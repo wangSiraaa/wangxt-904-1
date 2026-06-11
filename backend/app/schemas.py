@@ -1,5 +1,6 @@
 from datetime import datetime, date, time
 from typing import Optional, List
+import enum
 from pydantic import BaseModel, Field
 
 from .models import (
@@ -309,3 +310,62 @@ class ApiResponse(BaseModel):
     success: bool
     message: str
     data: Optional[dict] = None
+
+
+class DuplicateCheckTypeEnum(str, enum.Enum):
+    SHIFT_DUPLICATE = "shift_duplicate"
+    SIGNUP_DUPLICATE = "signup_duplicate"
+    ATTENDANCE_DUPLICATE = "attendance_duplicate"
+    TIME_CONFLICT = "time_conflict"
+    CROSS_SITE_CONFLICT = "cross_site_conflict"
+    TRAINING_REQUIRED = "training_required"
+
+
+class DuplicateCheckStatusEnum(str, enum.Enum):
+    PASS = "pass"
+    FAIL = "fail"
+    WARNING = "warning"
+
+
+class DuplicateCheckBase(BaseModel):
+    check_type: DuplicateCheckTypeEnum
+    status: DuplicateCheckStatusEnum
+    entity_type: Optional[str] = None
+    entity_id: Optional[int] = None
+    volunteer_id: Optional[int] = None
+    study_room_id: Optional[int] = None
+    shift_id: Optional[int] = None
+    conflict_entity_id: Optional[int] = None
+    conflict_details: Optional[str] = None
+    check_reason: Optional[str] = None
+
+
+class DuplicateCheckCreate(DuplicateCheckBase):
+    pass
+
+
+class DuplicateCheck(DuplicateCheckBase):
+    id: int
+    checked_by: Optional[int] = None
+    check_time: datetime
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DuplicateCheckWithDetails(DuplicateCheck):
+    volunteer: Optional[User] = None
+    study_room: Optional[StudyRoom] = None
+    shift: Optional[Shift] = None
+    checker: Optional[User] = None
+
+
+class DuplicateCheckResult(BaseModel):
+    has_duplicate: bool
+    check_type: Optional[str] = None
+    status: Optional[str] = None
+    message: Optional[str] = None
+    conflict_details: Optional[str] = None
+    conflicting_entity_id: Optional[int] = None
+    check_id: Optional[int] = None

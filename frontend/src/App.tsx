@@ -12,7 +12,8 @@ import {
   AuditOutlined,
   LogoutOutlined,
   UserOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  SafetyCertificateOutlined
 } from '@ant-design/icons'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -24,6 +25,7 @@ import LeaveRequests from './pages/LeaveRequests'
 import Volunteers from './pages/Volunteers'
 import Statistics from './pages/Statistics'
 import AuditLogs from './pages/AuditLogs'
+import DuplicateChecks from './pages/DuplicateChecks'
 
 const { Header, Sider, Content } = Layout
 
@@ -105,6 +107,14 @@ function AppLayout() {
       })
     }
 
+    if (user && (user.role === 'admin' || user.role === 'operations')) {
+      items.push({
+        key: '/duplicate-checks',
+        icon: <SafetyCertificateOutlined />,
+        label: '重复校验',
+      })
+    }
+
     return items
   }
 
@@ -167,6 +177,7 @@ function AppLayout() {
             <Route path="/volunteers" element={<Volunteers />} />
             <Route path="/statistics" element={<Statistics />} />
             <Route path="/audit" element={<AuditLogs />} />
+            <Route path="/duplicate-checks" element={<DuplicateChecks />} />
           </Routes>
         </Content>
       </Layout>

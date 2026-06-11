@@ -182,7 +182,7 @@ function LeaveRequests() {
     return texts[status] || status
   }
 
-  const leaveColumns = [
+  const leaveColumns: any[] = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     {
       title: '志愿者',
@@ -250,7 +250,7 @@ function LeaveRequests() {
     })
   }
 
-  const todoColumns = [
+  const todoColumns: any[] = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
     {
       title: '班次',

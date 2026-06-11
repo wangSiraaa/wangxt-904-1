@@ -110,6 +110,23 @@ export const auditApi = {
   list: (params?: any) => api.get('/audit', { params }),
 }
 
+export const duplicateCheckApi = {
+  list: (params?: any) => api.get('/duplicate-checks', { params }),
+  get: (id: number) => api.get(`/duplicate-checks/${id}`),
+  getTimeline: (params?: any) => api.get('/duplicate-checks/timeline', { params }),
+  checkSignup: (shiftId: number) =>
+    api.post('/duplicate-checks/check/signup', null, { params: { shift_id: shiftId } }),
+  checkShift: (params: {
+    study_room_id: number
+    shift_date: string
+    start_time: string
+    end_time: string
+    exclude_shift_id?: number
+  }) => api.post('/duplicate-checks/check/shift', null, { params }),
+  checkAttendance: (shiftId: number) =>
+    api.post('/duplicate-checks/check/attendance', null, { params: { shift_id: shiftId } }),
+}
+
 export const healthCheck = () => axios.get('/health')
 
 export default api
