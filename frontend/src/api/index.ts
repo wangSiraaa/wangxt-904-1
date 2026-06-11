@@ -26,12 +26,14 @@ api.interceptors.response.use(
 )
 
 export const authApi = {
-  login: (username: string, password: string) =>
-    api.post('/auth/login', null, {
-      params: { username, password },
+  login: (username: string, password: string) => {
+    const formData = new URLSearchParams()
+    formData.append('username', username)
+    formData.append('password', password)
+    return api.post('/auth/login', formData, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      data: new URLSearchParams({ username, password }).toString(),
-    }),
+    })
+  },
   register: (data: any) => api.post('/auth/register', data),
   getMe: () => api.get('/auth/me'),
 }

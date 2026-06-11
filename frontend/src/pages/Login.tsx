@@ -20,7 +20,8 @@ function Login() {
       message.success('登录成功')
       navigate('/')
     } catch (error: any) {
-      message.error(error.response?.data?.detail || '登录失败')
+      const errMsg = error?.response?.data?.detail || error?.message || '登录失败'
+      message.error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg))
     } finally {
       setLoading(false)
     }
