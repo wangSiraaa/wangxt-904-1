@@ -125,6 +125,11 @@ export const duplicateCheckApi = {
   }) => api.post('/duplicate-checks/check/shift', null, { params }),
   checkAttendance: (shiftId: number) =>
     api.post('/duplicate-checks/check/attendance', null, { params: { shift_id: shiftId } }),
+  checkStudyRoom: (params: {
+    name: string
+    address?: string
+    exclude_room_id?: number
+  }) => api.post('/duplicate-checks/check/study-room', null, { params }),
 }
 
 export const healthCheck = () => axios.get('/health')

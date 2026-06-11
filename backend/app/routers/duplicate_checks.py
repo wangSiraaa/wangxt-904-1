@@ -193,3 +193,50 @@ def check_attendance_duplicate(
         "conflict_details": check_record.conflict_details if check_record else None,
         "conflicting_attendance_id": conflict_attendance.id if conflict_attendance else None
     }
+
+
+@router.post("/check/study-room")
+def check_study_room_duplicate(
+    name: str,
+    address: str = None,
+    exclude_room_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.OPERATIONS))
+):
+    checks = dcs.perform_full_study_room_check(
+        db, name, address, exclude_room_id, current_user.id
+    )
+
+    has_duplicate = any(
+        c.status.value in ["fail", "warning"] for c in checks
+    )
+
+    conflicts = []
+    for check in checks:
+        if check.status.value in ["fail", "warning"]:
+            conflicts.append({
+                "check_id": check.id,
+                "check_type": check.check_type.value,
+                "status": check.status.value,
+                "message": check.check_reason,
+                "conflict_details": check.conflict_details,
+                "conflicting_entity_id": check.conflict_entity_id,
+                "conflict_study_room_id": check.study_room_id,
+                "check_time": check.check_time
+            })
+
+    return {
+        "has_duplicate": has_duplicate,
+        "total_checks": len(checks),
+        "conflicts": conflicts,
+        "all_checks": [
+            {
+                "id": c.id,
+                "check_type": c.check_type.value,
+                "status": c.status.value,
+                "check_reason": c.check_reason,
+                "check_time": c.check_time
+            }
+            for c in checks
+        ]
+    }

@@ -6,6 +6,7 @@ from ..database import get_db
 from ..models import StudyRoom, User, RoleEnum, AuditLog
 from ..schemas import StudyRoomCreate, StudyRoomUpdate, StudyRoom as StudyRoomSchema
 from ..auth import get_current_user, require_roles
+from ..services import duplicate_check_service as dcs
 
 router = APIRouter(prefix="/api/study-rooms", tags=["书房点位"])
 
@@ -41,6 +42,20 @@ def create_study_room(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles(RoleEnum.ADMIN, RoleEnum.OPERATIONS))
 ):
+    name_dup, name_check, _ = dcs.check_study_room_name_duplicate(
+        db, room_data.name, None, current_user.id
+    )
+    if name_dup:
+        db.commit()
+        raise HTTPException(
+            status_code=400,
+            detail=f"点位名称已存在: {room_data.name}"
+        )
+
+    dcs.check_study_room_address_duplicate(
+        db, room_data.address, None, current_user.id
+    )
+
     room = StudyRoom(**room_data.model_dump())
     db.add(room)
     db.flush()
@@ -73,6 +88,23 @@ def update_study_room(
         raise HTTPException(status_code=404, detail="书房点位不存在")
 
     update_data = room_data.model_dump(exclude_unset=True)
+
+    if "name" in update_data:
+        name_dup, name_check, _ = dcs.check_study_room_name_duplicate(
+            db, update_data["name"], room_id, current_user.id
+        )
+        if name_dup:
+            db.commit()
+            raise HTTPException(
+                status_code=400,
+                detail=f"点位名称已存在: {update_data['name']}"
+            )
+
+    if "address" in update_data:
+        dcs.check_study_room_address_duplicate(
+            db, update_data["address"], room_id, current_user.id
+        )
+
     for key, value in update_data.items():
         setattr(room, key, value)
 

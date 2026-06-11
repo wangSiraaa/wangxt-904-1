@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Table, Button, Modal, Form, Input, InputNumber, Select, Space, message, Popconfirm, Tag, Alert } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
-import { studyRoomApi } from '../api'
+import { studyRoomApi, duplicateCheckApi } from '../api'
 
 function StudyRooms() {
   const [data, setData] = useState<any[]>([])
@@ -58,21 +58,51 @@ function StudyRooms() {
     try {
       const values = await form.validateFields()
 
-      const isDuplicate = data.some(room =>
-        room.name === values.name && room.id !== editingId
-      )
-      if (isDuplicate) {
+      const checkRes = await duplicateCheckApi.checkStudyRoom({
+        name: values.name,
+        address: values.address,
+        exclude_room_id: editingId || undefined
+      })
+
+      const { has_duplicate, conflicts } = checkRes.data
+
+      if (!has_duplicate) {
+        if (editingId) {
+          await studyRoomApi.update(editingId, values)
+          message.success('更新成功')
+        } else {
+          await studyRoomApi.create(values)
+          message.success('创建成功')
+        }
+        setModalVisible(false)
+        setNameDuplicate(false)
+        loadData()
+        return
+      }
+
+      const nameConflict = conflicts.find((c: any) => c.check_type === 'study_room_name_duplicate')
+      const addrConflict = conflicts.find((c: any) => c.check_type === 'study_room_address_duplicate')
+
+      if (nameConflict) {
         Modal.error({
           title: '点位名称重复',
           content: (
             <div>
               <Alert
-                message="点位名称已存在"
+                message={nameConflict.message}
                 type="error"
                 showIcon
               />
               <p style={{ marginTop: 12 }}>
-                原因：名称为“{values.name}”的书房点位已存在，请使用不同的名称。
+                <strong>原因：</strong>{nameConflict.message}
+              </p>
+              {nameConflict.conflict_details && (
+                <p style={{ marginTop: 8 }}>
+                  <strong>详情：</strong>{nameConflict.conflict_details}
+                </p>
+              )}
+              <p style={{ marginTop: 8, color: '#999', fontSize: 12 }}>
+                校验记录ID：{nameConflict.check_id}
               </p>
             </div>
           ),
@@ -81,24 +111,29 @@ function StudyRooms() {
         return
       }
 
-      const isAddrDuplicate = data.some(room =>
-        room.address && values.address && room.address === values.address && room.id !== editingId
-      )
-      if (isAddrDuplicate) {
+      if (addrConflict) {
         Modal.warning({
           title: '点位地址重复',
           icon: <ExclamationCircleOutlined />,
           content: (
             <div>
               <Alert
-                message="相同地址已存在其他点位"
+                message={addrConflict.message}
                 type="warning"
                 showIcon
               />
               <p style={{ marginTop: 12 }}>
-                <strong>原因：</strong>地址“{values.address}”已用于其他书房点位。
+                <strong>原因：</strong>{addrConflict.message}
               </p>
-              <p>是否继续创建？</p>
+              {addrConflict.conflict_details && (
+                <p style={{ marginTop: 8 }}>
+                  <strong>详情：</strong>{addrConflict.conflict_details}
+                </p>
+              )}
+              <p style={{ marginTop: 8, color: '#999', fontSize: 12 }}>
+                校验记录ID：{addrConflict.check_id}
+              </p>
+              <p style={{ marginTop: 12 }}>是否继续{editingId ? '更新' : '创建'}？</p>
             </div>
           ),
           onOk: async () => {
@@ -118,19 +153,7 @@ function StudyRooms() {
             }
           }
         })
-        return
       }
-
-      if (editingId) {
-        await studyRoomApi.update(editingId, values)
-        message.success('更新成功')
-      } else {
-        await studyRoomApi.create(values)
-        message.success('创建成功')
-      }
-      setModalVisible(false)
-      setNameDuplicate(false)
-      loadData()
     } catch (error) {
       // 校验错误不处理
     }

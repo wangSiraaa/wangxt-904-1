@@ -238,6 +238,8 @@ class DuplicateCheckTypeEnum(str, enum.Enum):
     TIME_CONFLICT = "time_conflict"
     CROSS_SITE_CONFLICT = "cross_site_conflict"
     TRAINING_REQUIRED = "training_required"
+    STUDY_ROOM_NAME_DUPLICATE = "study_room_name_duplicate"
+    STUDY_ROOM_ADDRESS_DUPLICATE = "study_room_address_duplicate"
 
 
 class DuplicateCheckStatusEnum(str, enum.Enum):

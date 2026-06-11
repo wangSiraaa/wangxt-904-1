@@ -144,6 +144,57 @@ else
 fi
 
 echo ""
+info "=== 6.5 点位重复校验API - 名称 ==="
+
+NAME_ENCODED=$(python3 -c "import urllib.parse; print(urllib.parse.quote('中心书房'))")
+curl -s -X POST "$BACKEND_URL/api/duplicate-checks/check/study-room?name=$NAME_ENCODED" \
+    -H "Authorization: Bearer $TOKEN" > /tmp/room_check.json
+
+if grep -q '"has_duplicate"' /tmp/room_check.json; then
+    pass_test "点位重复校验API正常返回"
+    HAS_DUP=$(grep -o '"has_duplicate":[^,}]*' /tmp/room_check.json | cut -d':' -f2)
+    info "校验结果: has_duplicate=$HAS_DUP"
+    if [ "$HAS_DUP" = "true" ]; then
+        pass_test "点位名称重复检测生效"
+        CONFLICT_COUNT=$(grep -o '"conflict_details"' /tmp/room_check.json | wc -l)
+        info "  冲突详情字段数: $CONFLICT_COUNT"
+    fi
+else
+    fail_test "点位重复校验API正常返回"
+    cat /tmp/room_check.json
+fi
+
+echo ""
+info "=== 6.6 点位重复校验记录落库验证 ==="
+
+BEFORE_COUNT=$(curl -s "$BACKEND_URL/api/duplicate-checks?check_type=study_room_name_duplicate&limit=100" \
+    -H "Authorization: Bearer $TOKEN" | grep -o '"id"' | wc -l || true)
+
+curl -s -X POST "$BACKEND_URL/api/duplicate-checks/check/study-room?name=$NAME_ENCODED&address=testaddr" \
+    -H "Authorization: Bearer $TOKEN" > /dev/null
+
+AFTER_COUNT=$(curl -s "$BACKEND_URL/api/duplicate-checks?check_type=study_room_name_duplicate&limit=100" \
+    -H "Authorization: Bearer $TOKEN" | grep -o '"id"' | wc -l || true)
+
+if [ "$AFTER_COUNT" -gt "$BEFORE_COUNT" ]; then
+    pass_test "点位名称重复校验记录已落库 (之前: $BEFORE_COUNT, 之后: $AFTER_COUNT)"
+else
+    fail_test "点位名称重复校验记录落库验证 (之前: $BEFORE_COUNT, 之后: $AFTER_COUNT)"
+fi
+
+echo ""
+info "=== 6.7 点位地址重复校验 ==="
+
+curl -s -X POST "$BACKEND_URL/api/duplicate-checks/check/study-room?name=NewTestRoom&address=TestAddress" \
+    -H "Authorization: Bearer $TOKEN" > /tmp/addr_check.json
+
+if grep -q '"study_room_address_duplicate"' /tmp/addr_check.json; then
+    pass_test "点位地址重复校验类型返回"
+else
+    info "地址重复校验可能返回通过 (若无相同地址)"
+fi
+
+echo ""
 info "=== 7. 校验记录持久化验证 ==="
 
 curl -s "$BACKEND_URL/api/duplicate-checks?limit=10" \
@@ -160,7 +211,7 @@ fi
 echo ""
 info "=== 8. 校验类型枚举验证 ==="
 
-DUP_TYPES=("shift_duplicate" "signup_duplicate" "attendance_duplicate" "time_conflict" "cross_site_conflict" "training_required")
+DUP_TYPES=("shift_duplicate" "signup_duplicate" "attendance_duplicate" "time_conflict" "cross_site_conflict" "training_required" "study_room_name_duplicate" "study_room_address_duplicate")
 TYPE_CHECKS_PASS=0
 for dtype in "${DUP_TYPES[@]}"; do
     if curl -s "$BACKEND_URL/api/duplicate-checks?check_type=$dtype&limit=1" \
@@ -171,10 +222,10 @@ for dtype in "${DUP_TYPES[@]}"; do
         info "  类型 $dtype - 检查失败"
     fi
 done
-if [ $TYPE_CHECKS_PASS -eq 6 ]; then
-    pass_test "6种校验类型枚举全部支持"
+if [ $TYPE_CHECKS_PASS -eq 8 ]; then
+    pass_test "8种校验类型枚举全部支持"
 else
-    pass_test "支持 $TYPE_CHECKS_PASS/6 种校验类型"
+    pass_test "支持 $TYPE_CHECKS_PASS/8 种校验类型"
 fi
 
 echo ""

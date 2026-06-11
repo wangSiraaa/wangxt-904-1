@@ -179,6 +179,125 @@ def check_attendance_duplicate(
     return False, check_record, None
 
 
+def check_study_room_name_duplicate(
+    db: Session,
+    name: str,
+    exclude_room_id: Optional[int] = None,
+    checked_by: Optional[int] = None
+) -> Tuple[bool, Optional[DuplicateCheck], Optional[StudyRoom]]:
+    query = db.query(StudyRoom).filter(
+        StudyRoom.name == name,
+        StudyRoom.status == "active"
+    )
+    if exclude_room_id:
+        query = query.filter(StudyRoom.id != exclude_room_id)
+
+    existing_room = query.first()
+
+    if existing_room:
+        check_record = create_duplicate_check_record(
+            db,
+            check_type=DuplicateCheckTypeEnum.STUDY_ROOM_NAME_DUPLICATE,
+            status=DuplicateCheckStatusEnum.FAIL,
+            entity_type="study_room",
+            entity_id=exclude_room_id,
+            study_room_id=existing_room.id,
+            conflict_entity_id=existing_room.id,
+            conflict_details=f"点位名称重复: {existing_room.name} (ID: {existing_room.id}) 地址: {existing_room.address}",
+            check_reason="点位名称已存在",
+            checked_by=checked_by
+        )
+        return True, check_record, existing_room
+
+    check_record = create_duplicate_check_record(
+        db,
+        check_type=DuplicateCheckTypeEnum.STUDY_ROOM_NAME_DUPLICATE,
+        status=DuplicateCheckStatusEnum.PASS,
+        entity_type="study_room",
+        entity_id=exclude_room_id,
+        check_reason="点位名称无重复",
+        checked_by=checked_by
+    )
+    return False, check_record, None
+
+
+def check_study_room_address_duplicate(
+    db: Session,
+    address: str,
+    exclude_room_id: Optional[int] = None,
+    checked_by: Optional[int] = None
+) -> Tuple[bool, Optional[DuplicateCheck], Optional[StudyRoom]]:
+    if not address:
+        check_record = create_duplicate_check_record(
+            db,
+            check_type=DuplicateCheckTypeEnum.STUDY_ROOM_ADDRESS_DUPLICATE,
+            status=DuplicateCheckStatusEnum.PASS,
+            entity_type="study_room",
+            entity_id=exclude_room_id,
+            check_reason="地址为空，跳过检查",
+            checked_by=checked_by
+        )
+        return False, check_record, None
+
+    query = db.query(StudyRoom).filter(
+        StudyRoom.address == address,
+        StudyRoom.status == "active"
+    )
+    if exclude_room_id:
+        query = query.filter(StudyRoom.id != exclude_room_id)
+
+    existing_room = query.first()
+
+    if existing_room:
+        check_record = create_duplicate_check_record(
+            db,
+            check_type=DuplicateCheckTypeEnum.STUDY_ROOM_ADDRESS_DUPLICATE,
+            status=DuplicateCheckStatusEnum.WARNING,
+            entity_type="study_room",
+            entity_id=exclude_room_id,
+            study_room_id=existing_room.id,
+            conflict_entity_id=existing_room.id,
+            conflict_details=f"点位地址重复: {existing_room.address} 点位名称: {existing_room.name} (ID: {existing_room.id})",
+            check_reason="相同地址已存在其他点位",
+            checked_by=checked_by
+        )
+        return True, check_record, existing_room
+
+    check_record = create_duplicate_check_record(
+        db,
+        check_type=DuplicateCheckTypeEnum.STUDY_ROOM_ADDRESS_DUPLICATE,
+        status=DuplicateCheckStatusEnum.PASS,
+        entity_type="study_room",
+        entity_id=exclude_room_id,
+        check_reason="点位地址无重复",
+        checked_by=checked_by
+    )
+    return False, check_record, None
+
+
+def perform_full_study_room_check(
+    db: Session,
+    name: str,
+    address: Optional[str] = None,
+    exclude_room_id: Optional[int] = None,
+    checked_by: Optional[int] = None
+) -> List[DuplicateCheck]:
+    results = []
+
+    has_name_dup, name_check, _ = check_study_room_name_duplicate(
+        db, name, exclude_room_id, checked_by
+    )
+    results.append(name_check)
+
+    has_addr_dup, addr_check, _ = check_study_room_address_duplicate(
+        db, address, exclude_room_id, checked_by
+    )
+    results.append(addr_check)
+
+    db.commit()
+    return results
+
+
 def check_time_conflict(
     db: Session,
     volunteer_id: int,

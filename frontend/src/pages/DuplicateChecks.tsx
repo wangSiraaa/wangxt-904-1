@@ -88,6 +88,8 @@ function DuplicateChecks() {
       time_conflict: '时间冲突',
       cross_site_conflict: '跨点位冲突',
       training_required: '培训要求',
+      study_room_name_duplicate: '点位名称重复',
+      study_room_address_duplicate: '点位地址重复',
     }
     return texts[type] || type
   }
@@ -100,6 +102,8 @@ function DuplicateChecks() {
       time_conflict: 'red',
       cross_site_conflict: 'gold',
       training_required: 'cyan',
+      study_room_name_duplicate: 'magenta',
+      study_room_address_duplicate: 'geekblue',
     }
     return colors[type] || 'default'
   }
@@ -280,6 +284,8 @@ function DuplicateChecks() {
             <Select.Option value="time_conflict">时间冲突</Select.Option>
             <Select.Option value="cross_site_conflict">跨点位冲突</Select.Option>
             <Select.Option value="training_required">培训要求</Select.Option>
+            <Select.Option value="study_room_name_duplicate">点位名称重复</Select.Option>
+            <Select.Option value="study_room_address_duplicate">点位地址重复</Select.Option>
           </Select>
           <Button onClick={loadData}>刷新</Button>
         </Space>
